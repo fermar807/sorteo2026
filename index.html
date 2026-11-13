@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sorteo Navideño de Clientes</title>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    :root {
+      --rojo: #b91c1c;
+      --rojo-oscuro: #7f1d1d;
+      --verde: #15803d;
+      --dorado: #eab308;
+      --fondo: #0f172a;
+      --tarjeta: #1e293b;
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #1e293b, var(--fondo));
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    header { text-align: center; margin-bottom: 20px; max-width: 700px; }
+    h1 { color: var(--dorado); margin: 0 0 8px; font-size: 2rem; text-shadow: 0 2px 10px rgba(234,179,8,0.3); }
+    p.subtitulo { color: #cbd5e1; margin: 0; font-size: 1rem; }
+
+    /* Pantalla de Login */
+    #login-box {
+      background: var(--tarjeta);
+      padding: 30px;
+      border-radius: 16px;
+      border: 1px solid #334155;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+      margin-top: 30px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 14px;
+      font-size: 1.1rem;
+      text-align: center;
+      text-transform: uppercase;
+      border-radius: 10px;
+      border: 2px solid #475569;
+      background: #0f172a;
+      color: white;
+      margin: 15px 0;
+      letter-spacing: 2px;
+    }
+    input[type="text"]:focus { outline: none; border-color: var(--dorado); }
+
+    button {
+      background: linear-gradient(135deg, var(--rojo), var(--rojo-oscuro));
+      color: white;
+      border: none;
+      padding: 14px 24px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 10px;
+      cursor: pointer;
+      width: 100%;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    button:hover { transform: translateY(-2px); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* Banner de estado del usuario */
+    #status-banner {
+      display: none;
+      width: 100%;
+      max-width: 1100px;
+      padding: 16px 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      text-align: center;
+      font-size: 1.05rem;
+    }
+    .banner-activo { background: rgba(21, 128, 61, 0.25); border: 1px solid #22c55e; color: #bbf7d0; }
+    .banner-usado { background: rgba(234, 179, 8, 0.15); border: 1px solid var(--dorado); color: #fef08a; }
+
+    /* Cuadrícula de 75 cuadros */
+    #grid-container {
+      display: none;
+      grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+      gap: 12px;
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    .cuadro {
+      aspect-ratio: 1 / 1;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 8px;
+      text-align: center;
+      transition: all 0.2s ease;
+      position: relative;
+      user-select: none;
+    }
+
+    .cuadro.disponible {
+      background: linear-gradient(145deg, #dc2626, #991b1b);
+      border: 2px solid #f87171;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    .cuadro.disponible.clickable { cursor: pointer; }
+    .cuadro.disponible.clickable:hover {
+      transform: scale(1.05);
+      border-color: var(--dorado);
+      box-shadow: 0 0 15px rgba(234, 179, 8, 0.5);
+    }
+    .cuadro.disponible .num { font-size: 1.6rem; font-weight: 800; color: white; }
+    .cuadro.disponible .icono { font-size: 1.4rem; margin-bottom: 2px; }
+
+    .cuadro.canjeado {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #94a3b8;
+    }
+    .cuadro.mi-premio {
+      background: linear-gradient(145deg, #166534, #14532d);
+      border: 2px solid var(--dorado);
+      color: white;
+      box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
+    }
+    .cuadro .premio-txt { font-size: 0.8rem; font-weight: bold; color: #f8fafc; line-height: 1.2; margin: 4px 0; }
+    .cuadro .ganador-txt { font-size: 0.7rem; color: #94a3b8; }
+    .cuadro.mi-premio .ganador-txt { color: #fde047; font-weight: bold; }
+
+    /* Modal de Premio Ganado */
+    #modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      z-index: 100;
+    }
+    .modal-content {
+      background: var(--tarjeta);
+      border: 2px solid var(--dorado);
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      animation: popIn 0.3s ease;
+    }
+    @keyframes popIn {
+      from { transform: scale(0.8); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .premio-destacado {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--dorado);
+      margin: 15px 0;
+      padding: 15px;
+      background: rgba(234, 179, 8, 0.1);
+      border-radius: 12px;
+    }
+    .btn-wa { background: #16a34a; margin-top: 10px; }
+    .btn-cerrar { background: #475569; margin-top: 10px; }
+    #error-msg { color: #fca5a5; margin-top: 12px; font-size: 0.9rem; }
+    .loader { display: none; margin-top: 10px; color: var(--dorado); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🎄 Tablero Navideño de Premios 🎁</h1>
+    <p class="subtitulo">Ingresa tu código exclusivo para destapar tu regalo o revisar qué se han llevado los demás.</p>
+  </header>
+
+  <!-- Caja de Acceso -->
+  <div id="login-box">
+    <h3 style="margin-top:0;">Ingresa tu código</h3>
+    <input type="text" id="codigo-input" placeholder="EJ: NAV-101" autocomplete="off">
+    <button id="btn-ingresar" onclick="iniciarSesion()">Entrar al Tablero</button>
+    <div id="loader-login" class="loader">Verificando código...</div>
+    <div id="error-msg"></div>
+  </div>
+
+  <!-- Banner Informativo -->
+  <div id="status-banner"></div>
+
+  <!-- Cuadrícula de 75 Cuadros -->
+  <div id="grid-container"></div>
+
+  <!-- Modal al Ganar -->
+  <div id="modal">
+    <div class="modal-content">
+      <div style="font-size: 3rem;">🎉🎁🎉</div>
+      <h2 style="margin: 10px 0 0;">¡Felicidades, <span id="modal-cliente"></span>!</h2>
+      <p style="color:#cbd5e1; margin: 5px 0;">Abriste el cuadro <strong>#<span id="modal-cuadro"></span></strong> y ganaste:</p>
+      <div class="premio-destacado" id="modal-premio"></div>
+      <button class="btn-wa" onclick="reclamarWhatsApp()">📲 Reclamar por WhatsApp</button>
+      <button class="btn-cerrar" onclick="cerrarModal()">Ver el resto del tablero</button>
+    </div>
+  </div>
+
+  <script>
+    // ================= CONFIGURACIÓN =================
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNI_YYWSI1xtm4SsQOJm8vUp1oUZZk7VR8Mx8VcIyNDEkyqryZN8Varfpa9nVoCtVi0w/exec";
+    const WHATSAPP_NUMERO = "50378852889"; // Código de país + número sin signos
+    // =================================================
+
+    let estadoUsuario = {
+      codigo: '',
+      cliente: '',
+      usado: false,
+      cuadroElegido: null,
+      premioGanado: ''
+    };
+    let procesandoClic = false;
+
+    // Permitir presionar Enter en el input
+    document.getElementById('codigo-input').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') iniciarSesion();
+    });
+
+    async function iniciarSesion() {
+      const codigo = document.getElementById('codigo-input').value.trim().toUpperCase();
+      const errorDiv = document.getElementById('error-msg');
+      const loader = document.getElementById('loader-login');
+      const btn = document.getElementById('btn-ingresar');
+
+      if (!codigo) {
+        errorDiv.textContent = "Por favor escribe tu código.";
+        return;
+      }
+
+      errorDiv.textContent = "";
+      loader.style.display = "block";
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'login', codigo: codigo })
+        });
+        const data = await res.json();
+
+        if (data.status === 'ok') {
+          estadoUsuario = {
+            codigo: codigo,
+            cliente: data.cliente,
+            usado: data.usado,
+            cuadroElegido: data.cuadroElegido,
+            premioGanado: data.premioGanado
+          };
+          document.getElementById('login-box').style.display = 'none';
+          actualizarBanner();
+          renderizarTablero(data.tablero);
+        } else {
+          errorDiv.textContent = data.message;
+        }
+      } catch (err) {
+        errorDiv.textContent = "Error de conexión. Intenta nuevamente.";
+      } finally {
+        loader.style.display = "none";
+        btn.disabled = false;
+      }
+    }
+
+    function actualizarBanner() {
+      const banner = document.getElementById('status-banner');
+      banner.style.display = 'block';
+
+      if (!estadoUsuario.usado) {
+        banner.className = 'banner-activo';
+        banner.innerHTML = `👋 ¡Hola <strong>${estadoUsuario.cliente}</strong>! Tienes <strong>1 oportunidad</strong>. Haz clic en cualquier cuadro rojo para descubrir tu regalo.`;
+      } else {
+        banner.className = 'banner-usado';
+        banner.innerHTML = `👀 Hola <strong>${estadoUsuario.cliente}</strong>, ya canjeaste el <strong>Cuadro #${estadoUsuario.cuadroElegido}</strong> (<em>${estadoUsuario.premioGanado}</em>).<br><small>Estás en modo espectador: puedes revisar qué premios han ganado los demás.</small>`;
+      }
+    }
+
+    function renderizarTablero(tablero) {
+      const container = document.getElementById('grid-container');
+      container.style.display = 'grid';
+      container.innerHTML = '';
+
+      tablero.forEach(item => {
+        const div = document.createElement('div');
+        const esMiPremio = estadoUsuario.usado && parseInt(estadoUsuario.cuadroElegido) === parseInt(item.cuadro);
+
+        if (item.estado === 'Disponible') {
+          div.className = 'cuadro disponible' + (!estadoUsuario.usado ? ' clickable' : '');
+          div.innerHTML = `
+            <span class="icono">🎁</span>
+            <span class="num">${item.cuadro}</span>
+          `;
+          if (!estadoUsuario.usado) {
+            div.onclick = () => elegirCuadro(item.cuadro, div);
+          }
+        } else {
+          div.className = 'cuadro canjeado' + (esMiPremio ? ' mi-premio' : '');
+          div.innerHTML = `
+            <span style="font-size:0.75rem; opacity:0.7;">#${item.cuadro}</span>
+            <span class="premio-txt">${item.premio}</span>
+            <span class="ganador-txt">${esMiPremio ? '★ TU PREMIO ★' : item.ganador}</span>
+          `;
+        }
+        container.appendChild(div);
+      });
+    }
+
+    async function elegirCuadro(numeroCuadro, elementoHTML) {
+      if (estadoUsuario.usado || procesandoClic) return;
+
+      const confirmar = confirm(`¿Seguro que deseas abrir el cuadro #${numeroCuadro}? Solo tienes una oportunidad.`);
+      if (!confirmar) return;
+
+      procesandoClic = true;
+      elementoHTML.innerHTML = `<span style="font-size:0.85rem;">Abriendo...</span>`;
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'claim',
+            codigo: estadoUsuario.codigo,
+            cuadro: numeroCuadro
+          })
+        });
+        const data = await res.json();
+
+        if (data.status === 'ok') {
+          estadoUsuario.usado = true;
+          estadoUsuario.cuadroElegido = data.cuadro;
+          estadoUsuario.premioGanado = data.premio;
+
+          actualizarBanner();
+          renderizarTablero(data.tablero);
+          mostrarModalGanador(data.cliente, data.cuadro, data.premio);
+        } else {
+          alert(data.message);
+          // Recargar tablero por si alguien más ganó ese cuadro
+          iniciarSesion();
+        }
+      } catch (err) {
+        alert("Hubo un problema de red al abrir el cuadro. Intenta de nuevo.");
+      } finally {
+        procesandoClic = false;
+      }
+    }
+
+    function mostrarModalGanador(cliente, cuadro, premio) {
+      document.getElementById('modal-cliente').textContent = cliente;
+      document.getElementById('modal-cuadro').textContent = cuadro;
+      document.getElementById('modal-premio').textContent = premio;
+      document.getElementById('modal').style.display = 'flex';
+
+      confetti({
+        particleCount: 120,
+        spread: 80,
+        origin: { y: 0.6 }
+      });
+    }
+
+    function cerrarModal() {
+      document.getElementById('modal').style.display = 'none';
+    }
+
+    function reclamarWhatsApp() {
+      const texto = `¡Hola! Soy ${estadoUsuario.cliente} (Código: ${estadoUsuario.codigo}). Participé en el Tablero Navideño, abrí el cuadro #${estadoUsuario.cuadroElegido} y gané: *${estadoUsuario.premioGanado}*.`;
+      const url = `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(texto)}`;
+      window.open(url, '_blank');
+    }
+  </script>
+</body>
+</html>
